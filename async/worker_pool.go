@@ -46,7 +46,7 @@ type WorkerPool struct {
 	workerQueue        chan *queuedTask
 	stoppedChan        chan struct{}
 	stopSignal         chan struct{}
-	waitingQueue       deque.Deque
+	waitingQueue       deque.Deque[*queuedTask]
 	workerCount        int
 	stopLock           sync.Mutex
 	stopOnce           sync.Once
@@ -362,7 +362,7 @@ func (p *WorkerPool) pushBack(task *queuedTask) int32 {
 
 // popFront removes and returns the task at the front of the queue
 func (p *WorkerPool) popFront() *queuedTask {
-	t := p.waitingQueue.PopFront().(*queuedTask)
+	t := p.waitingQueue.PopFront()
 	atomic.StoreInt32(&p.pendingSize, int32(p.waitingQueue.Len()))
 
 	return t
@@ -370,5 +370,5 @@ func (p *WorkerPool) popFront() *queuedTask {
 
 // peekFront returns but not removes the task at the front of the queue
 func (p *WorkerPool) peekFront() *queuedTask {
-	return p.waitingQueue.Front().(*queuedTask)
+	return p.waitingQueue.Front()
 }
