@@ -1,4 +1,4 @@
-module github.com/grab/async
+module github.com/jamestrandung/go-concurrency/async
 
 go 1.18
 
@@ -7,7 +7,6 @@ require (
 	github.com/jamestrandung/go-data-structure v1.0.0
 	github.com/stretchr/testify v1.7.1
 	go.uber.org/goleak v1.1.12
-	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 )
 
