@@ -1,4 +1,4 @@
-module github.com/jamestrandung/go-concurrency/async
+module github.com/jamestrandung/go-concurrency
 
 go 1.18
 
