@@ -67,6 +67,9 @@ type Task[T any] interface {
 	RunSync(ctx context.Context) Task[T]
 	// Outcome waits for this task to complete and returns the final result & error.
 	Outcome() (T, error)
+	// ResultOrDefault waits for this task to complete and returns the final result if
+	// there's no error or the default result if there's an error.
+	ResultOrDefault(T) T
 }
 
 type outcome[T any] struct {
@@ -214,6 +217,16 @@ func ContinueWithResult[T any](currentTask SilentTask, nextAction func(context.C
 func (t *task[T]) Outcome() (T, error) {
 	<-t.done
 	return t.outcome.result, t.outcome.err
+}
+
+func (t *task[T]) ResultOrDefault(defaultResult T) T {
+	<-t.done
+
+	if t.outcome.err != nil {
+		return defaultResult
+	}
+
+	return t.outcome.result
 }
 
 func (t *task[T]) Error() error {

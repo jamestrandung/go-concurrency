@@ -7,10 +7,45 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"testing"
-
 	"github.com/stretchr/testify/assert"
+	"testing"
+	"time"
 )
+
+func TestForkJoinFailFast(t *testing.T) {
+	first := NewTask(
+		func(context.Context) (int, error) {
+			return 1, nil
+		},
+	)
+
+	second := NewTask(
+		func(context.Context) (interface{}, error) {
+			<-time.After(50 * time.Millisecond)
+			return nil, assert.AnError
+		},
+	)
+
+	third := NewTask(
+		func(context.Context) (int, error) {
+			<-time.After(200 * time.Millisecond)
+			return 3, nil
+		},
+	)
+
+	err := ForkJoinFailFast(context.Background(), []SilentTask{first, second, third})
+	assert.Equal(t, assert.AnError, err)
+
+	outcome1, error1 := first.Outcome()
+	assert.Equal(t, 1, outcome1)
+	assert.Nil(t, error1)
+
+	outcome2, error2 := second.Outcome()
+	assert.Nil(t, outcome2)
+	assert.NotNil(t, error2)
+
+	assert.Equal(t, IsCancelled, third.State())
+}
 
 func TestForkJoin(t *testing.T) {
 	first := NewTask(

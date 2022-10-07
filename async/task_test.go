@@ -43,7 +43,7 @@ func TestOutcome(t *testing.T) {
 		go func() {
 			o, _ := task.Outcome()
 			wg.Done()
-			assert.Equal(t, o.(int), 1)
+			assert.Equal(t, 1, o.(int))
 		}()
 	}
 	wg.Wait()
@@ -62,6 +62,25 @@ func TestOutcomeTimeout(t *testing.T) {
 
 	_, err := task.Outcome()
 	assert.Equal(t, "context deadline exceeded", err.Error())
+}
+
+func TestResultOrDefault(t *testing.T) {
+	task := Invoke(
+		context.Background(), func(context.Context) (interface{}, error) {
+			return 1, assert.AnError
+		},
+	)
+
+	var wg sync.WaitGroup
+	wg.Add(100)
+	for i := 0; i < 100; i++ {
+		go func() {
+			o := task.ResultOrDefault(0)
+			wg.Done()
+			assert.Equal(t, 0, o.(int))
+		}()
+	}
+	wg.Wait()
 }
 
 func TestContinueWithChain(t *testing.T) {

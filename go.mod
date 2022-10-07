@@ -7,6 +7,7 @@ require (
 	github.com/jamestrandung/go-data-structure v1.0.0
 	github.com/stretchr/testify v1.8.0
 	go.uber.org/goleak v1.1.12
+	golang.org/x/sync v0.0.0-20220929204114-8fcdb60fdcc0
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858
 )
 
