@@ -306,6 +306,7 @@ func (t *task[T]) doRun(ctx context.Context) bool {
 			if r := recover(); r != nil {
 				outcomeCh <- outcome[T]{err: fmt.Errorf("panic executing async task: %v \n %s", r, debug.Stack())}
 			}
+			close(outcomeCh)
 		}()
 
 		r, e := t.action(ctxWithCancel)
