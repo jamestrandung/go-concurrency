@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBatch(t *testing.T) {
+func TestSilentBatch(t *testing.T) {
 	const taskCount = 10
 
 	var wg sync.WaitGroup
@@ -22,15 +22,17 @@ func TestBatch(t *testing.T) {
 	out := make(chan int, 10)
 
 	// Processor that multiplies items by 10 all at once
-	b := NewBatcher(
-		func(input []int) error {
+	b := NewSilentBatcher(
+		func(input []interface{}) error {
 			for _, number := range input {
-				out <- number * 10
+				out <- number.(int) * 10
 			}
 
 			return nil
 		},
 	)
+
+	defer b.Shutdown()
 
 	for i := 0; i < taskCount; i++ {
 		number := i
@@ -57,22 +59,24 @@ func TestBatch(t *testing.T) {
 	}
 }
 
-func TestBatcher_AppendAutoProcessBySize(t *testing.T) {
+func TestSilentBatcher_AppendAutoProcessBySize(t *testing.T) {
 	const taskCount = 10
 
 	out := make(chan int, taskCount)
 
 	// Processor that multiplies items by 10 all at once
-	b := NewBatcher(
-		func(input []int) error {
+	b := NewSilentBatcher(
+		func(input []interface{}) error {
 			for _, number := range input {
-				out <- number * 10
+				out <- number.(int) * 10
 			}
 
 			return nil
 		},
 		WithAutoProcessSize(taskCount),
 	)
+
+	defer b.Shutdown()
 
 	tasks := make([]SilentTask, taskCount)
 	for i := 0; i < taskCount; i++ {
@@ -96,16 +100,16 @@ func TestBatcher_AppendAutoProcessBySize(t *testing.T) {
 	}
 }
 
-func TestBatcher_AutoProcessOnInterval(t *testing.T) {
+func TestSilentBatcher_AutoProcessOnInterval(t *testing.T) {
 	const taskCount = 10
 
 	out := make(chan int, taskCount)
 
 	// Processor that multiplies items by 10 all at once
-	b := NewBatcher(
-		func(input []int) error {
+	b := NewSilentBatcher(
+		func(input []interface{}) error {
 			for _, number := range input {
-				out <- number * 10
+				out <- number.(int) * 10
 			}
 
 			return nil
@@ -137,16 +141,16 @@ func TestBatcher_AutoProcessOnInterval(t *testing.T) {
 	}
 }
 
-func TestBatcher_Shutdown(t *testing.T) {
+func TestSilentBatcher_Shutdown(t *testing.T) {
 	const taskCount = 10
 
 	out := make(chan int, taskCount)
 
 	// Processor that multiplies items by 10 all at once
-	b := NewBatcher(
-		func(input []int) error {
+	b := NewSilentBatcher(
+		func(input []interface{}) error {
 			for _, number := range input {
-				out <- number * 10
+				out <- number.(int) * 10
 			}
 
 			return nil
@@ -175,12 +179,12 @@ func TestBatcher_Shutdown(t *testing.T) {
 	}
 }
 
-func TestBatcher_ShutdownWithTimeout(t *testing.T) {
+func TestSilentBatcher_ShutdownWithTimeout(t *testing.T) {
 	const taskCount = 10
 
 	// Processor that multiplies items by 10 all at once
-	b := NewBatcher(
-		func(input []int) error {
+	b := NewSilentBatcher(
+		func(input []interface{}) error {
 			time.Sleep(100 * time.Millisecond)
 
 			return nil
@@ -212,12 +216,12 @@ func TestBatcher_ShutdownWithTimeout(t *testing.T) {
 	}
 }
 
-func ExampleBatcher() {
+func ExampleSilentBatcher() {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	b := NewBatcher(
-		func(input []int) error {
+	b := NewSilentBatcher(
+		func(input []interface{}) error {
 			fmt.Println(input)
 			return nil
 		},
