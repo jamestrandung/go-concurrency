@@ -127,7 +127,14 @@ func NewBatcher[P any, T any](
 					}()
 				}
 
-				if !b.isActive {
+				shouldBreak := func() bool {
+					b.RLock()
+					defer b.RUnlock()
+
+					return !b.isActive
+				}()
+
+				if shouldBreak {
 					return
 				}
 			}

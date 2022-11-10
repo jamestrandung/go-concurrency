@@ -70,7 +70,14 @@ func NewSilentBatcher[P any](processFn func([]P) error, options ...BatcherOption
 					}()
 				}
 
-				if !b.isActive {
+				shouldBreak := func() bool {
+					b.RLock()
+					defer b.RUnlock()
+
+					return !b.isActive
+				}()
+
+				if shouldBreak {
 					return
 				}
 			}
