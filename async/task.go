@@ -326,6 +326,7 @@ func (t *task[T]) doRun(ctx context.Context) bool {
 	startedAt := now().UnixNano()
 	outcomeCh := make(chan outcome[T], 1)
 	go func() {
+		defer close(outcomeCh)
 		// Convert panics into standard errors for clients to handle gracefully
 		defer func() {
 			if r := recover(); r != nil {
@@ -334,7 +335,6 @@ func (t *task[T]) doRun(ctx context.Context) bool {
 
 				outcomeCh <- outcome[T]{err: fmt.Errorf("panic executing async task: %v \n %s", r, debug.Stack())}
 			}
-			close(outcomeCh)
 		}()
 
 		r, e := t.action(ctxWithCancel)
