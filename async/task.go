@@ -44,6 +44,7 @@ type signal chan struct{}
 
 // SilentTask represents a unit of work to complete in silence
 // like background works that return no values.
+//go:generate mockery --name SilentTask --case underscore --inpackage
 type SilentTask interface {
 	// WithRecoverAction attaches the given recover action with task so that
 	// it can be executed when a panic occurs.
@@ -66,6 +67,7 @@ type SilentTask interface {
 
 // Task represents a unit of work that is expected to return
 // a value of a particular type.
+//go:generate mockery --name Task --case underscore --inpackage
 type Task[T any] interface {
 	SilentTask
 	// Run starts this task asynchronously.

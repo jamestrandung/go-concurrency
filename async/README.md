@@ -1,6 +1,6 @@
 # Async
 
-## Why you should consider this package
+## Why you want to use this package
 Package `async` simplifies the implementation of orchestration patterns for concurrent systems. It is similar to 
 Java Future or JS Promise, which makes life much easier when dealing with asynchronous operation and concurrent 
 processing. Golang is excellent in terms of parallel programming. However, dealing with goroutines and channels 
