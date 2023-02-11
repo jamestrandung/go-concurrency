@@ -242,6 +242,8 @@ func TestTaskCancelRunning(t *testing.T) {
 
 	task.Cancel()
 
+	time.Sleep(1000 * time.Millisecond)
+
 	_, err := task.Outcome()
 	assert.Equal(t, ErrCancelled, err)
 }
