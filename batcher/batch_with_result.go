@@ -5,9 +5,6 @@ package batcher
 
 import (
 	"context"
-	"sync"
-	"time"
-
 	"github.com/jamestrandung/go-concurrency/async"
 )
 
@@ -85,10 +82,7 @@ type Batcher[P any, T any] interface {
 }
 
 type batcher[P any, T any] struct {
-	sync.RWMutex
-	*batcherConfigs
-	isActive            bool
-	batchID             uint64                   // The current batch ID
+	*baseBatcher
 	lastID              uint64                   // The current entry ID
 	pending             *pendingBatch[P]         // The task queue to be executed in one batch
 	batchExecutor       async.Task[map[uint64]T] // The current batch executor
@@ -112,63 +106,20 @@ func NewBatcher[P any, T any](
 	}
 
 	b := &batcher[P, T]{
-		batcherConfigs: configs,
-		isActive:       true,
-		pending:        newPendingBatch(payloadKeyExtractor),
-		batch:          make(chan *pendingBatch[P], 1),
-		processFn:      processFn,
+		baseBatcher: &baseBatcher{
+			batcherConfigs: configs,
+			isActive:       true,
+		},
+		pending:   newPendingBatch(payloadKeyExtractor),
+		batch:     make(chan *pendingBatch[P], 1),
+		processFn: processFn,
 	}
 
-	if b.isPeriodicAutoProcessingConfigured() {
-		go func() {
-			for {
-				curBatchId := b.batchID
+	b.itself = b
 
-				<-time.After(b.autoProcessInterval)
-
-				// Best effort to prevent timer from acquiring lock unnecessarily, no guarantee
-				if curBatchId == b.batchID {
-					func() {
-						b.Lock()
-						defer b.Unlock()
-
-						b.doProcess(context.Background(), false, curBatchId)
-					}()
-				}
-
-				shouldBreak := func() bool {
-					b.RLock()
-					defer b.RUnlock()
-
-					return !b.isActive
-				}()
-
-				if shouldBreak {
-					return
-				}
-			}
-		}()
-	}
+	b.spawnGoroutineToAutoProcessPeriodically()
 
 	return b
-}
-
-func (b *batcher[P, T]) isPeriodicAutoProcessingConfigured() bool {
-	return b.autoProcessInterval > 0
-}
-
-func (b *batcher[P, T]) BuyTicket(ctx context.Context) context.Context {
-	b.Lock()
-	defer b.Unlock()
-
-	return b.ticketBooth.sellTicket(ctx)
-}
-
-func (b *batcher[P, T]) DiscardTicket(ctx context.Context) {
-	b.Lock()
-	defer b.Unlock()
-
-	b.ticketBooth.discardTicket(ctx)
 }
 
 func (b *batcher[P, T]) Append(ctx context.Context, payload P) async.Task[T] {
@@ -241,30 +192,6 @@ func (b *batcher[P, T]) Size() int {
 	defer b.RUnlock()
 
 	return b.pending.size()
-}
-
-func (b *batcher[P, T]) Process(ctx context.Context) {
-	b.Lock()
-	defer b.Unlock()
-
-	b.doProcess(ctx, false, b.batchID)
-}
-
-func (b *batcher[P, T]) Shutdown() {
-	b.Lock()
-	defer b.Unlock()
-
-	ctx := context.Background()
-	if b.shutdownGraceDuration > 0 {
-		ctxWithTimeout, cancel := context.WithTimeout(ctx, b.shutdownGraceDuration)
-		defer cancel()
-
-		ctx = ctxWithTimeout
-	}
-
-	b.doProcess(ctx, true, b.batchID)
-
-	b.isActive = false
 }
 
 func (b *batcher[P, T]) shouldAutoProcess(ctx context.Context) bool {

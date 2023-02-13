@@ -6,15 +6,14 @@ package batcher
 import (
 	"context"
 	"errors"
-	"sync"
-	"time"
-
 	"github.com/jamestrandung/go-concurrency/async"
 )
 
 var (
 	ErrBatchProcessorNotActive = errors.New("batch processor has already shut down")
 )
+
+type silentBatch[P any] []silentBatchEntry[P]
 
 type silentBatchEntry[P any] struct {
 	payload P // Will be used as input when the batch is processed
@@ -32,25 +31,24 @@ type SilentBatcher[P any] interface {
 }
 
 type silentBatcher[P any] struct {
-	sync.RWMutex
-	*batcherConfigs
-	isActive      bool
-	batchID       uint64                     // The current batch ID
-	pending       []silentBatchEntry[P]      // The task queue to be executed in one batch
-	batchExecutor async.SilentTask           // The current batch executor
-	batch         chan []silentBatchEntry[P] // The channel to submit a batch to be processed by the above executor
-	processFn     func([]P) error            // The func which will be executed to process one batch of tasks
+	*baseBatcher
+	pending       silentBatch[P]      // The task queue to be executed in one batch
+	batchExecutor async.SilentTask    // The current batch executor
+	batch         chan silentBatch[P] // The channel to submit a batch to be processed by the above executor
+	processFn     func([]P) error     // The func which will be executed to process one batch of tasks
 }
 
 // NewSilentBatcher returns a new SilentBatcher
 func NewSilentBatcher[P any](processFn func([]P) error, options ...BatcherOption) SilentBatcher[P] {
 	b := &silentBatcher[P]{
-		batcherConfigs: &batcherConfigs{
-			ticketBooth: noOpTicketBooth{},
+		baseBatcher: &baseBatcher{
+			batcherConfigs: &batcherConfigs{
+				ticketBooth: noOpTicketBooth{},
+			},
+			isActive: true,
 		},
-		isActive:  true,
-		pending:   []silentBatchEntry[P]{},
-		batch:     make(chan []silentBatchEntry[P], 1),
+		pending:   silentBatch[P]{},
+		batch:     make(chan silentBatch[P], 1),
 		processFn: processFn,
 	}
 
@@ -58,56 +56,11 @@ func NewSilentBatcher[P any](processFn func([]P) error, options ...BatcherOption
 		o(b.batcherConfigs)
 	}
 
-	if b.isPeriodicAutoProcessingConfigured() {
-		go func() {
-			for {
-				curBatchId := b.batchID
+	b.itself = b
 
-				<-time.After(b.autoProcessInterval)
-
-				// Best effort to prevent timer from acquiring lock unnecessarily, no guarantee
-				if curBatchId == b.batchID {
-					func() {
-						b.Lock()
-						defer b.Unlock()
-
-						b.doProcess(context.Background(), false, curBatchId)
-					}()
-				}
-
-				shouldBreak := func() bool {
-					b.RLock()
-					defer b.RUnlock()
-
-					return !b.isActive
-				}()
-
-				if shouldBreak {
-					return
-				}
-			}
-		}()
-	}
+	b.spawnGoroutineToAutoProcessPeriodically()
 
 	return b
-}
-
-func (b *silentBatcher[P]) isPeriodicAutoProcessingConfigured() bool {
-	return b.autoProcessInterval > 0
-}
-
-func (b *silentBatcher[P]) BuyTicket(ctx context.Context) context.Context {
-	b.Lock()
-	defer b.Unlock()
-
-	return b.ticketBooth.sellTicket(ctx)
-}
-
-func (b *silentBatcher[P]) DiscardTicket(ctx context.Context) {
-	b.Lock()
-	defer b.Unlock()
-
-	b.ticketBooth.discardTicket(ctx)
 }
 
 func (b *silentBatcher[P]) Append(ctx context.Context, payload P) async.SilentTask {
@@ -158,30 +111,6 @@ func (b *silentBatcher[P]) Size() int {
 	return len(b.pending)
 }
 
-func (b *silentBatcher[P]) Process(ctx context.Context) {
-	b.Lock()
-	defer b.Unlock()
-
-	b.doProcess(ctx, false, b.batchID)
-}
-
-func (b *silentBatcher[P]) Shutdown() {
-	b.Lock()
-	defer b.Unlock()
-
-	ctx := context.Background()
-	if b.shutdownGraceDuration > 0 {
-		ctxWithTimeout, cancel := context.WithTimeout(ctx, b.shutdownGraceDuration)
-		defer cancel()
-
-		ctx = ctxWithTimeout
-	}
-
-	b.doProcess(ctx, true, b.batchID)
-
-	b.isActive = false
-}
-
 func (b *silentBatcher[P]) shouldAutoProcess(ctx context.Context) bool {
 	shouldAutoProcess := b.autoProcessSize > 0 && len(b.pending) == b.autoProcessSize
 	if shouldAutoProcess {
@@ -206,7 +135,7 @@ func (b *silentBatcher[P]) doProcess(ctx context.Context, isShuttingDown bool, t
 
 	// Capture pending tasks and reset the queue
 	pending := b.pending
-	b.pending = []silentBatchEntry[P]{}
+	b.pending = silentBatch[P]{}
 
 	// Run the current batch using the existing executor
 	b.batch <- pending
