@@ -78,7 +78,16 @@ func (b *ticketBooth) submitTicket(ctx context.Context) bool {
 	b.arrivedTickets[ticketID] = true
 	b.arrivedCount++
 
-	return b.arrivedCount == len(b.arrivedTickets)
+	hasAllArrived := b.arrivedCount == len(b.arrivedTickets)
+	if hasAllArrived {
+		// Reset so that clients can repeat if necessary
+		b.arrivedCount = 0
+		for k, _ := range b.arrivedTickets {
+			b.arrivedTickets[k] = false
+		}
+	}
+
+	return hasAllArrived
 }
 
 type noOpTicketBooth struct{}

@@ -8,12 +8,13 @@ import (
     "errors"
     "fmt"
     "runtime/debug"
+    "sync"
     "sync/atomic"
     "time"
 )
 
-// ErrCancelled is returned when a task gets cancelled.
-var ErrCancelled = errors.New("task cancelled")
+// ErrDefaultCancelReason is default reason when none is provided.
+var ErrDefaultCancelReason = errors.New("no reason provided")
 
 var now = time.Now
 
@@ -57,6 +58,8 @@ type SilentTask interface {
     Wait()
     // Cancel changes the state of this task to `Cancelled`.
     Cancel()
+    // CancelWithReason changes the state of this task to `Cancelled` with the given reason.
+    CancelWithReason(error)
     // Error returns the error that occurred when this task was executed.
     Error() error
     // State returns the current state of this task. This operation is non-blocking.
@@ -87,13 +90,14 @@ type outcome[T any] struct {
 }
 
 type task[T any] struct {
-    state    int32            // The current async.State of this task
-    cancel   signal           // The channel for cancelling this task
-    done     signal           // The channel for indicating this task has completed
-    action   Work[T]          // The work to do
-    outcome  outcome[T]       // This is used to store the outcome of this task
-    rAction  PanicRecoverWork // The work to do when a panic occurs
-    duration time.Duration    // The duration of this task, in nanoseconds
+    state      int32      // The current async.State of this task
+    cancel     chan error // The channel for cancelling this task
+    cancelOnce sync.Once
+    done       signal           // The channel for indicating this task has completed
+    action     Work[T]          // The work to do
+    outcome    outcome[T]       // This is used to store the outcome of this task
+    rAction    PanicRecoverWork // The work to do when a panic occurs
+    duration   time.Duration    // The duration of this task, in nanoseconds
 }
 
 // Completed returns a completed task with the given result and error.
@@ -117,7 +121,7 @@ func NewTask[T any](action Work[T]) Task[T] {
     return &task[T]{
         action: action,
         done:   make(signal, 1),
-        cancel: make(signal, 1),
+        cancel: make(chan error, 1),
     }
 }
 
@@ -139,7 +143,7 @@ func NewSilentTask(action SilentWork) SilentTask {
             return struct{}{}, action(taskCtx)
         },
         done:   make(signal, 1),
-        cancel: make(signal, 1),
+        cancel: make(chan error, 1),
     }
 }
 
@@ -290,23 +294,33 @@ func (t *task[T]) ExecuteSync(ctx context.Context) SilentTask {
 }
 
 func (t *task[T]) Cancel() {
+    t.CancelWithReason(ErrDefaultCancelReason)
+}
+
+func (t *task[T]) CancelWithReason(err error) {
+    if err == nil {
+        err = ErrDefaultCancelReason
+    }
+
     // If the task was created but never started, transition directly to cancelled state
     // and close the done channel and set the error.
     if t.changeState(IsCreated, IsCancelled) {
-        t.outcome = outcome[T]{err: ErrCancelled}
+        t.outcome = outcome[T]{err: fmt.Errorf("task cancelled with reason: %s", err.Error())}
         close(t.done)
         return
     }
 
     // Attempt to cancel the task if it's in the running state
-    if t.cancel != nil {
-        select {
-        case <-t.cancel:
-            return
-        default:
-            close(t.cancel)
-        }
+    if t.cancel == nil {
+        return
     }
+
+    t.cancelOnce.Do(
+        func() {
+            t.cancel <- err
+            close(t.cancel)
+        },
+    )
 }
 
 func (t *task[T]) doRun(ctx context.Context) bool {
@@ -344,9 +358,13 @@ func (t *task[T]) doRun(ctx context.Context) bool {
     select {
     // In case of a manual task cancellation, set the outcome and transition
     // to the cancelled state.
-    case <-t.cancel:
+    case err := <-t.cancel:
+        if err == nil {
+            err = ErrDefaultCancelReason
+        }
+
         t.duration = time.Nanosecond * time.Duration(now().UnixNano()-startedAt)
-        t.outcome = outcome[T]{err: ErrCancelled}
+        t.outcome = outcome[T]{err: fmt.Errorf("task cancelled with reason: %s", err.Error())}
         t.changeState(IsRunning, IsCancelled)
 
     // In case of the context timeout or other error, change the state of the

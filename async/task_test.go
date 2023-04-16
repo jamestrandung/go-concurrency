@@ -5,6 +5,7 @@ package async
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -227,12 +228,17 @@ func TestTaskCancelStarted(t *testing.T) {
 	task.Cancel()
 
 	_, err := task.Outcome()
-	assert.Equal(t, ErrCancelled, err)
+	assert.Equal(t, fmt.Errorf("task cancelled with reason: %s", ErrDefaultCancelReason.Error()), err)
 }
 
 func TestTaskCancelRunning(t *testing.T) {
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	task := Invoke(
 		context.Background(), func(context.Context) (interface{}, error) {
+			defer wg.Done()
+
 			time.Sleep(500 * time.Millisecond)
 			return 1, nil
 		},
@@ -242,10 +248,10 @@ func TestTaskCancelRunning(t *testing.T) {
 
 	task.Cancel()
 
-	time.Sleep(1000 * time.Millisecond)
+	wg.Wait()
 
 	_, err := task.Outcome()
-	assert.Equal(t, ErrCancelled, err)
+	assert.Equal(t, fmt.Errorf("task cancelled with reason: %s", ErrDefaultCancelReason.Error()), err)
 }
 
 func TestTaskCancelTwice(t *testing.T) {
@@ -265,5 +271,5 @@ func TestTaskCancelTwice(t *testing.T) {
 	)
 
 	_, err := task.Outcome()
-	assert.Equal(t, ErrCancelled, err)
+	assert.Equal(t, fmt.Errorf("task cancelled with reason: %s", ErrDefaultCancelReason.Error()), err)
 }

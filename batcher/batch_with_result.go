@@ -195,12 +195,10 @@ func (b *batcher[P, T]) Size() int {
 }
 
 func (b *batcher[P, T]) shouldAutoProcess(ctx context.Context) bool {
-	shouldAutoProcess := b.autoProcessSize > 0 && b.pending.size() == b.autoProcessSize
-	if shouldAutoProcess {
-		return true
-	}
+	haveAllClientsArrived := b.ticketBooth.submitTicket(ctx)
+	shouldAutoProcessBySize := b.autoProcessSize > 0 && b.pending.size() == b.autoProcessSize
 
-	return b.ticketBooth.submitTicket(ctx)
+	return haveAllClientsArrived || shouldAutoProcessBySize
 }
 
 func (b *batcher[P, T]) doProcess(ctx context.Context, isShuttingDown bool, toProcessBatchID uint64) {
