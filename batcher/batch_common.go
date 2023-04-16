@@ -54,7 +54,18 @@ func (b *baseBatcher) DiscardTicket(ctx context.Context) {
 	b.Lock()
 	defer b.Unlock()
 
-	b.ticketBooth.discardTicket(ctx)
+	if shouldAutoProcess := b.ticketBooth.discardTicket(ctx); !shouldAutoProcess {
+		return
+	}
+
+	curBatchId := b.batchID
+
+	go func() {
+		b.Lock()
+		defer b.Unlock()
+
+		b.itself.doProcess(context.Background(), false, curBatchId)
+	}()
 }
 
 func (b *baseBatcher) Process(ctx context.Context) {
