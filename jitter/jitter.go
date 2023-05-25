@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/jamestrandung/go-concurrency/async"
+	"github.com/jamestrandung/go-concurrency/v2/async"
 )
 
 // DoJitter adds a random jitter before executing doFn, then returns the jitter duration.

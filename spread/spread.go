@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/jamestrandung/go-concurrency/async"
+	"github.com/jamestrandung/go-concurrency/v2/async"
 )
 
 // Spread evenly starts the given tasks within the specified duration. Clients can

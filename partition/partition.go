@@ -7,7 +7,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/jamestrandung/go-concurrency/async"
+	"github.com/jamestrandung/go-concurrency/v2/async"
 
 	"github.com/jamestrandung/go-data-structure/emap"
 )

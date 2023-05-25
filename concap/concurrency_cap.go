@@ -7,7 +7,7 @@ import (
 	"context"
 	"runtime"
 
-	"github.com/jamestrandung/go-concurrency/async"
+	"github.com/jamestrandung/go-concurrency/v2/async"
 )
 
 func cancelRemainingTasks[T async.SilentTask](tasks <-chan T) {

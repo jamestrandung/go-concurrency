@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/jamestrandung/go-concurrency/async"
+	"github.com/jamestrandung/go-concurrency/v2/async"
 )
 
 func ExampleDoJitter() {

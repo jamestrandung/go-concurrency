@@ -1,6 +1,6 @@
-module github.com/jamestrandung/go-concurrency
+module github.com/jamestrandung/go-concurrency/v2
 
-go 1.18
+go 1.20
 
 require (
 	github.com/gammazero/deque v0.2.0

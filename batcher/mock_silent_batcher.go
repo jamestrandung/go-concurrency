@@ -5,7 +5,7 @@ package batcher
 import (
 	context "context"
 
-	async "github.com/jamestrandung/go-concurrency/async"
+	async "github.com/jamestrandung/go-concurrency/v2/async"
 
 	mock "github.com/stretchr/testify/mock"
 )

@@ -5,7 +5,7 @@ package batcher
 
 import (
 	"context"
-	"github.com/jamestrandung/go-concurrency/async"
+	"github.com/jamestrandung/go-concurrency/v2/async"
 )
 
 type batchEntry[P any] struct {
@@ -72,6 +72,7 @@ func (pb *pendingBatch[P]) append(id uint64, payload P) {
 
 // Batcher is a batch processor which is suitable for sitting in the back to receive tasks
 // from callers to execute in one go and then return individual result to each caller.
+//
 //go:generate mockery --name Batcher --case underscore --inpackage
 type Batcher[P any, T any] interface {
 	iBatcher

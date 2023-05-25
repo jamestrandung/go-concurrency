@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/jamestrandung/go-concurrency/async"
+	"github.com/jamestrandung/go-concurrency/v2/async"
 
 	"golang.org/x/time/rate"
 )

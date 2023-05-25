@@ -4,56 +4,56 @@
 package throttle
 
 import (
-	"context"
-	"fmt"
-	"testing"
-	"time"
+    "context"
+    "fmt"
+    "testing"
+    "time"
 
-	"github.com/jamestrandung/go-concurrency/async"
+    "github.com/jamestrandung/go-concurrency/v2/async"
 
-	"github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/assert"
 )
 
 func newTasks() []async.Task[int] {
-	work := func(context.Context) (int, error) {
-		return 1, nil
-	}
+    work := func(context.Context) (int, error) {
+        return 1, nil
+    }
 
-	return async.NewTasks(work, work, work, work, work)
+    return async.NewTasks(work, work, work, work, work)
 }
 
 func TestThrottle(t *testing.T) {
-	tasks := newTasks()
+    tasks := newTasks()
 
-	// Throttle and calculate the duration
-	t0 := time.Now()
+    // Throttle and calculate the duration
+    t0 := time.Now()
 
-	throttledTask := Throttle(tasks, 3, 50*time.Millisecond)
-	throttledTask.ExecuteSync(context.Background())
+    throttledTask := Throttle(tasks, 3, 50*time.Millisecond)
+    throttledTask.ExecuteSync(context.Background())
 
-	// Make sure we completed within duration
-	dt := int(time.Now().Sub(t0).Seconds() * 1000)
-	assert.True(t, dt > 50 && dt < 100, fmt.Sprintf("%v ms.", dt))
+    // Make sure we completed within duration
+    dt := int(time.Now().Sub(t0).Seconds() * 1000)
+    assert.True(t, dt > 50 && dt < 100, fmt.Sprintf("%v ms.", dt))
 }
 
 func TestThrottle_Cancel(t *testing.T) {
-	tasks := newTasks()
+    tasks := newTasks()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
+    ctx, cancel := context.WithCancel(context.Background())
+    cancel()
 
-	// Throttle and calculate the duration
-	throttledTask := Throttle(tasks, 3, 50*time.Millisecond)
-	throttledTask.Execute(ctx)
+    // Throttle and calculate the duration
+    throttledTask := Throttle(tasks, 3, 50*time.Millisecond)
+    throttledTask.Execute(ctx)
 
-	async.WaitAll(tasks)
+    async.WaitAll(tasks)
 
-	cancelled := 0
-	for _, t := range tasks {
-		if t.State() == async.IsCancelled {
-			cancelled++
-		}
-	}
+    cancelled := 0
+    for _, t := range tasks {
+        if t.State() == async.IsCancelled {
+            cancelled++
+        }
+    }
 
-	assert.Equal(t, 5, cancelled)
+    assert.Equal(t, 5, cancelled)
 }

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jamestrandung/go-concurrency/async"
+	"github.com/jamestrandung/go-concurrency/v2/async"
 
 	"github.com/stretchr/testify/assert"
 )
