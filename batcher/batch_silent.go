@@ -7,6 +7,7 @@ import (
     "context"
     "errors"
     "github.com/jamestrandung/go-concurrency/v2/async"
+    "github.com/twinj/uuid"
 )
 
 var (
@@ -21,6 +22,7 @@ type silentBatchEntry[P any] struct {
 
 // SilentBatcher is a batch processor which is suitable for sitting in the back to accumulate
 // tasks and then execute all in one go silently.
+//
 //go:generate mockery --name SilentBatcher --case underscore --inpackage
 type SilentBatcher[P any] interface {
     iBatcher
@@ -45,7 +47,8 @@ func NewSilentBatcher[P any](processFn func([]P) error, options ...BatcherOption
             batcherConfigs: &batcherConfigs{
                 ticketBooth: noOpTicketBooth{},
             },
-            isActive: true,
+            isActive:  true,
+            batcherID: uuid.NewV4().String(),
         },
         pending:   silentBatch[P]{},
         batch:     make(chan silentBatch[P], 1),
@@ -117,7 +120,7 @@ func (b *silentBatcher[P]) shouldAutoProcess(ctx context.Context) bool {
         return true
     }
 
-    return b.ticketBooth.submitTicket(ctx)
+    return b.ticketBooth.submitTicket(ctx, b.batcherID)
 }
 
 func (b *silentBatcher[P]) doProcess(ctx context.Context, isShuttingDown bool, toProcessBatchID uint64) {

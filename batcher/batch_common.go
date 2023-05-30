@@ -35,8 +35,9 @@ type baseBatcher struct {
 	itself iBatcher
 	sync.RWMutex
 	*batcherConfigs
-	isActive bool
-	batchID  uint64
+	isActive  bool
+	batcherID string
+	batchID   uint64
 }
 
 func (b *baseBatcher) isPeriodicAutoProcessingConfigured() bool {
@@ -47,14 +48,14 @@ func (b *baseBatcher) BuyTicket(ctx context.Context) context.Context {
 	b.Lock()
 	defer b.Unlock()
 
-	return b.ticketBooth.sellTicket(ctx)
+	return b.ticketBooth.sellTicket(ctx, b.batcherID)
 }
 
 func (b *baseBatcher) DiscardTicket(ctx context.Context) {
 	b.Lock()
 	defer b.Unlock()
 
-	if shouldAutoProcess := b.ticketBooth.discardTicket(ctx); !shouldAutoProcess {
+	if shouldAutoProcess := b.ticketBooth.discardTicket(ctx, b.batcherID); !shouldAutoProcess {
 		return
 	}
 

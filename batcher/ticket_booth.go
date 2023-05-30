@@ -10,14 +10,14 @@ import (
 // ticket owners have arrived.
 type iTicketBooth interface {
 	// sellTicket issues a new ticket and embeds it in the given context.
-	sellTicket(ctx context.Context) context.Context
+	sellTicket(ctx context.Context, batcherID string) context.Context
 	// discardTicket finds an issued ticket in the given context and if found,
 	// unregisters it from the pool of sold tickets and then returns whether
 	// all ticket owners have arrived.
-	discardTicket(ctx context.Context) bool
+	discardTicket(ctx context.Context, batcherID string) bool
 	// submitTicket finds an issued ticket in the given context and if found,
 	// marks it as arrived and returns whether all ticket owners have arrived.
-	submitTicket(ctx context.Context) bool
+	submitTicket(ctx context.Context, batcherID string) bool
 }
 
 type ticketBooth struct {
@@ -31,17 +31,19 @@ func newTicketBooth() *ticketBooth {
 	}
 }
 
-type contextKey struct{}
+type contextKey struct {
+	batcherID string
+}
 
-func (b *ticketBooth) sellTicket(ctx context.Context) context.Context {
+func (b *ticketBooth) sellTicket(ctx context.Context, batcherID string) context.Context {
 	ticketID := uuid.NewV4().String()
 	b.arrivedTickets[ticketID] = false
 
-	return context.WithValue(ctx, contextKey{}, ticketID)
+	return context.WithValue(ctx, contextKey{batcherID}, ticketID)
 }
 
-func (b *ticketBooth) discardTicket(ctx context.Context) bool {
-	v := ctx.Value(contextKey{})
+func (b *ticketBooth) discardTicket(ctx context.Context, batcherID string) bool {
+	v := ctx.Value(contextKey{batcherID})
 
 	ticketID, ok := v.(string)
 	if !ok {
@@ -63,8 +65,8 @@ func (b *ticketBooth) discardTicket(ctx context.Context) bool {
 	return b.resetIfAllTicketsHaveArrived()
 }
 
-func (b *ticketBooth) submitTicket(ctx context.Context) bool {
-	v := ctx.Value(contextKey{})
+func (b *ticketBooth) submitTicket(ctx context.Context, batcherID string) bool {
+	v := ctx.Value(contextKey{batcherID})
 
 	ticketID, ok := v.(string)
 	if !ok {
@@ -104,14 +106,14 @@ func (b *ticketBooth) resetIfAllTicketsHaveArrived() bool {
 
 type noOpTicketBooth struct{}
 
-func (noOpTicketBooth) sellTicket(ctx context.Context) context.Context {
+func (noOpTicketBooth) sellTicket(ctx context.Context, batcherID string) context.Context {
 	return ctx
 }
 
-func (noOpTicketBooth) discardTicket(ctx context.Context) bool {
+func (noOpTicketBooth) discardTicket(ctx context.Context, batcherID string) bool {
 	return false
 }
 
-func (noOpTicketBooth) submitTicket(ctx context.Context) bool {
+func (noOpTicketBooth) submitTicket(ctx context.Context, batcherID string) bool {
 	return false
 }

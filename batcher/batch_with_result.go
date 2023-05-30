@@ -6,6 +6,7 @@ package batcher
 import (
 	"context"
 	"github.com/jamestrandung/go-concurrency/v2/async"
+	"github.com/twinj/uuid"
 )
 
 type batchEntry[P any] struct {
@@ -110,6 +111,7 @@ func NewBatcher[P any, T any](
 		baseBatcher: &baseBatcher{
 			batcherConfigs: configs,
 			isActive:       true,
+			batcherID:      uuid.NewV4().String(),
 		},
 		pending:   newPendingBatch(payloadKeyExtractor),
 		batch:     make(chan *pendingBatch[P], 1),
@@ -196,7 +198,7 @@ func (b *batcher[P, T]) Size() int {
 }
 
 func (b *batcher[P, T]) shouldAutoProcess(ctx context.Context) bool {
-	haveAllClientsArrived := b.ticketBooth.submitTicket(ctx)
+	haveAllClientsArrived := b.ticketBooth.submitTicket(ctx, b.batcherID)
 	shouldAutoProcessBySize := b.autoProcessSize > 0 && b.pending.size() == b.autoProcessSize
 
 	return haveAllClientsArrived || shouldAutoProcessBySize
